@@ -1,0 +1,6 @@
+[
+    "file_change_handler.py",
+    "file_monitor_thread.py",
+    "file_tracker.py",
+    "file_tracker.json"
+]

@@ -1,0 +1,41 @@
+{
+    ".": [
+        "config.ini",
+        "file_sizes.csv",
+        "file_tracker.json",
+        "main.py",
+        "print_files.py",
+        "requirements.txt"
+    ],
+    "config": [
+        "config_manager.py",
+        "file_tracker.json"
+    ],
+    "context_menu": [
+        "context_menu.py",
+        "file_tracker.json"
+    ],
+    "file_monitoring": [
+        "file_change_handler.py",
+        "file_monitor_thread.py",
+        "file_tracker.json",
+        "file_tracker.py"
+    ],
+    "file_system": [
+        "custom_file_system_model.py",
+        "file_tracker.json"
+    ],
+    "project_creation": [
+        "file_tracker.json",
+        "project_creation_thread.py",
+        "project_creator.py"
+    ],
+    "ui": [
+        "file_tracker.json",
+        "project_manager_ui.py"
+    ],
+    "version_management": [
+        "file_tracker.json",
+        "version_manager.py"
+    ]
+}
