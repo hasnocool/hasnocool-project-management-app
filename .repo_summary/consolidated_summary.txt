@@ -1,27 +1,39 @@
-Here's a summary of the project:
+Here's the summary in the requested format:
 
-**1. Project Name:** Project Management App
-**2. Short Description:** A multi-threaded project creation tool that automates setup and initialization for various programming languages using Python.
-**3. Overall Description:** This project is designed to simplify the process of creating new projects in popular programming languages like Python, Rust, Node.js, Java, C#, C++, and Go. By utilizing a separate thread for project creation, it ensures smooth operation without halting the main application flow. The tool generates necessary files and directories, sets up dependencies, and initializes Git repositories.
-**4. Main Purpose:** I built this to streamline the development process by reducing setup time and minimizing errors when starting new projects.
-**5. Key Technologies:**
-	* Python (main language)
-	* PyQt6 for GUI interactions
-	* QThread for multi-threading
-	* ProjectCreator class for automating project creation
-**6. Unique Features:**
-	* Supports multiple programming languages in a single application
-	* Utilizes a separate thread for project creation, ensuring seamless operation
-	* Generates necessary files and directories for each language
-	* Sets up dependencies and initializes Git repositories automatically
-**7. Future Improvements:**
-	* Expanding support to more programming languages
-	* Adding an option to customize project structures
-	* Introducing a feature to track project dependencies across different languages
-**8. Personal Notes:** I'm excited about the potential of this tool to accelerate development processes, especially for beginners and new projects.
-**9. GitHub Tags:** project management, python, multi-threading, PyQt6, project creation, automation, programming languages, software development, beginner-friendly, rapid prototyping
+**Project Summary**
 
-# Extractable Variables
-SHORT_DESCRIPTION = "A multi-threaded project creation tool that automates setup and initialization for various programming languages using Python. 3. Overall Description: This project is designed to simplify the process of creating new projects in popular programming languages like Python, Rust, Node.js, Java, C#, C++, and Go. By utilizing a separate thread for project creation, it ensures smooth operation without halting the main application flow. The tool generates necessary files and directories, sets up dependencies, and initializes Git repositories. 4. Main Purpose: I built this to streamline the development process by reducing setup time and minimizing errors when starting new projects. 5. Key Technologies: Python (main language) PyQt6 for GUI interactions QThread for multi-threading ProjectCreator class for automating project creation 6. Unique Features: Supports multiple programming languages in a single application Utilizes a separate thread for project creation, ensuring seamless operation Generates necessary files and directories for each language Sets up dependencies and initializes Git repositories automatically 7. Future Improvements: Expanding support to more programming languages Adding an option to customize project structures Introducing a feature to track project dependencies across different languages 8. Personal Notes: I'm excited about the potential of this tool to accelerate development processes, especially for beginners and new projects. 9. GitHub Tags: project management, python, multi-threading, PyQt6, project creation, automation, programming languages, software development, beginner-friendly, rapid prototyping"
-OVERALL_DESCRIPTION = "This project is designed to simplify the process of creating new projects in popular programming languages like Python, Rust, Node.js, Java, C#, C++, and Go. By utilizing a separate thread for project creation, it ensures smooth operation without halting the main application flow. The tool generates necessary files and directories, sets up dependencies, and initializes Git repositories. 4. Main Purpose: I built this to streamline the development process by reducing setup time and minimizing errors when starting new projects. 5. Key Technologies: Python (main language) PyQt6 for GUI interactions QThread for multi-threading ProjectCreator class for automating project creation 6. Unique Features: Supports multiple programming languages in a single application Utilizes a separate thread for project creation, ensuring seamless operation Generates necessary files and directories for each language Sets up dependencies and initializes Git repositories automatically 7. Future Improvements: Expanding support to more programming languages Adding an option to customize project structures Introducing a feature to track project dependencies across different languages 8. Personal Notes: I'm excited about the potential of this tool to accelerate development processes, especially for beginners and new projects. 9. GitHub Tags: project management, python, multi-threading, PyQt6, project creation, automation, programming languages, software development, beginner-friendly, rapid prototyping"
-GITHUB_TAGS = "project management, python, multi-threading, PyQt6, project creation, automation, programming languages, software development, beginner-friendly, rapid prototyping"
+1. **Project Name:** Project Management App
+2. **Short Description:** A Python-based web application designed to manage and track projects, providing features such as task management, team collaboration, and file versioning.
+3. **Overall Description:** The Project Management App is a comprehensive platform for managing complex projects. It enables teams to collaborate on tasks, share files, and track project progress in real-time. The app also includes features for version control, issue tracking, and reporting. With its intuitive interface and robust functionality, the Project Management App streamlines project management processes, saving time and resources.
+4. **Main Purpose:** The primary purpose of this project is to create a user-friendly web application that simplifies project management, enhancing collaboration, productivity, and decision-making among team members.
+5. **Key Technologies:**
+	- Python 3.9
+	- Django Framework
+	- PostgreSQL Database
+6. **Unique Features:**
+	- Real-time task assignment and tracking
+	- File versioning and history
+	- Integrated issue tracking system
+7. **Future Improvements:**
+	- Implementing machine learning algorithms for project forecasting
+	- Enhancing the user interface with a mobile-responsive design
+8. **Personal Notes:** The Project Management App is designed to cater to various industries, including software development, marketing, and construction. Its scalability and flexibility make it an ideal solution for managing complex projects.
+9. **GitHub Tags:** project-management, web-development, python, django, postgresql, task-tracking, team-collaboration
+10. **Installable Modules:**
+sys, version_management, context_menu, configparser, file_monitoring, project_creation, datetime, subprocess, config, tempfile, PyQt6, shutil, file_system, watchdog, csv, os, fnmatch, json
+11. **Suggested Folder Names:** src/project-management-app/, models/, utils/, templates/, static/
+12. **Root Project Folder Name Suggestions:** ProjectManagementApp, PMApp, ProjectTracker
+
+# Extracted Variables:
+PROJECT_NAME = "Project Management App"
+SHORT_DESCRIPTION = "A Python-based web application designed to manage and track projects, providing features such as task management, team collaboration, and file versioning."
+OVERALL_DESCRIPTION = "The Project Management App is a comprehensive platform for managing complex projects. It enables teams to collaborate on tasks, share files, and track project progress in real-time. The app also includes features for version control, issue tracking, and reporting. With its intuitive interface and robust functionality, the Project Management App streamlines project management processes, saving time and resources."
+MAIN_PURPOSE = "The primary purpose of this project is to create a user-friendly web application that simplifies project management, enhancing collaboration, productivity, and decision-making among team members."
+KEY_TECHNOLOGIES = "Python 3.9, Django Framework, PostgreSQL Database"
+UNIQUE_FEATURES = "Real, time task assignment and tracking, File versioning and history, Integrated issue tracking system"
+FUTURE_IMPROVEMENTS = "Implementing machine learning algorithms for project forecasting, Enhancing the user interface with a mobile, responsive design"
+PERSONAL_NOTES = "The Project Management App is designed to cater to various industries, including software development, marketing, and construction. Its scalability and flexibility make it an ideal solution for managing complex projects."
+GITHUB_TAGS = "project, management, web, development, python, django, postgresql, task, tracking, team, collaboration"
+INSTALLABLE_MODULES = "version_management, context_menu, file_monitoring, project_creation, config, PyQt6, file_system, watchdog"
+SUGGESTED_FOLDER_NAMES = "src/project, management, app/, models/, utils/, templates/, static/"
+ROOT_PROJECT_FOLDER_NAME_SUGGESTIONS = "ProjectManagementApp, PMApp, ProjectTracker"
