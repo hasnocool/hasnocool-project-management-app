@@ -1,0 +1,27 @@
+Here's a summary of the project:
+
+**1. Project Name:** Project Management App
+**2. Short Description:** A multi-threaded project creation tool that automates setup and initialization for various programming languages using Python.
+**3. Overall Description:** This project is designed to simplify the process of creating new projects in popular programming languages like Python, Rust, Node.js, Java, C#, C++, and Go. By utilizing a separate thread for project creation, it ensures smooth operation without halting the main application flow. The tool generates necessary files and directories, sets up dependencies, and initializes Git repositories.
+**4. Main Purpose:** I built this to streamline the development process by reducing setup time and minimizing errors when starting new projects.
+**5. Key Technologies:**
+	* Python (main language)
+	* PyQt6 for GUI interactions
+	* QThread for multi-threading
+	* ProjectCreator class for automating project creation
+**6. Unique Features:**
+	* Supports multiple programming languages in a single application
+	* Utilizes a separate thread for project creation, ensuring seamless operation
+	* Generates necessary files and directories for each language
+	* Sets up dependencies and initializes Git repositories automatically
+**7. Future Improvements:**
+	* Expanding support to more programming languages
+	* Adding an option to customize project structures
+	* Introducing a feature to track project dependencies across different languages
+**8. Personal Notes:** I'm excited about the potential of this tool to accelerate development processes, especially for beginners and new projects.
+**9. GitHub Tags:** project management, python, multi-threading, PyQt6, project creation, automation, programming languages, software development, beginner-friendly, rapid prototyping
+
+# Extractable Variables
+SHORT_DESCRIPTION = "A multi-threaded project creation tool that automates setup and initialization for various programming languages using Python. 3. Overall Description: This project is designed to simplify the process of creating new projects in popular programming languages like Python, Rust, Node.js, Java, C#, C++, and Go. By utilizing a separate thread for project creation, it ensures smooth operation without halting the main application flow. The tool generates necessary files and directories, sets up dependencies, and initializes Git repositories. 4. Main Purpose: I built this to streamline the development process by reducing setup time and minimizing errors when starting new projects. 5. Key Technologies: Python (main language) PyQt6 for GUI interactions QThread for multi-threading ProjectCreator class for automating project creation 6. Unique Features: Supports multiple programming languages in a single application Utilizes a separate thread for project creation, ensuring seamless operation Generates necessary files and directories for each language Sets up dependencies and initializes Git repositories automatically 7. Future Improvements: Expanding support to more programming languages Adding an option to customize project structures Introducing a feature to track project dependencies across different languages 8. Personal Notes: I'm excited about the potential of this tool to accelerate development processes, especially for beginners and new projects. 9. GitHub Tags: project management, python, multi-threading, PyQt6, project creation, automation, programming languages, software development, beginner-friendly, rapid prototyping"
+OVERALL_DESCRIPTION = "This project is designed to simplify the process of creating new projects in popular programming languages like Python, Rust, Node.js, Java, C#, C++, and Go. By utilizing a separate thread for project creation, it ensures smooth operation without halting the main application flow. The tool generates necessary files and directories, sets up dependencies, and initializes Git repositories. 4. Main Purpose: I built this to streamline the development process by reducing setup time and minimizing errors when starting new projects. 5. Key Technologies: Python (main language) PyQt6 for GUI interactions QThread for multi-threading ProjectCreator class for automating project creation 6. Unique Features: Supports multiple programming languages in a single application Utilizes a separate thread for project creation, ensuring seamless operation Generates necessary files and directories for each language Sets up dependencies and initializes Git repositories automatically 7. Future Improvements: Expanding support to more programming languages Adding an option to customize project structures Introducing a feature to track project dependencies across different languages 8. Personal Notes: I'm excited about the potential of this tool to accelerate development processes, especially for beginners and new projects. 9. GitHub Tags: project management, python, multi-threading, PyQt6, project creation, automation, programming languages, software development, beginner-friendly, rapid prototyping"
+GITHUB_TAGS = "project management, python, multi-threading, PyQt6, project creation, automation, programming languages, software development, beginner-friendly, rapid prototyping"

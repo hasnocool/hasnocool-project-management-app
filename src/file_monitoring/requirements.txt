@@ -1,0 +1,3 @@
+PyQt6
+file_monitoring
+watchdog

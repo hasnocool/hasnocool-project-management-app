@@ -1,0 +1,1510 @@
+
+========================================
+File: /home/hasnocool/Github/active/project-management-app/src/.gitattributes
+========================================
+# Auto detect text files and perform LF normalization
+* text=auto
+
+========================================
+File: /home/hasnocool/Github/active/project-management-app/src/main.py
+========================================
+import os
+import sys
+import shutil
+import tempfile
+from PyQt6.QtWidgets import QApplication
+from PyQt6.QtCore import QThread, pyqtSignal, QPoint  # Add QPoint here
+from PyQt6.QtGui import QPixmap, QImage, QPainter, QColor, QFont
+
+def load_script_to_ram(script_path):
+    with open(script_path, 'r') as file:
+        return file.read()
+
+def copy_to_temp_and_import(script_path):
+    temp_dir = tempfile.mkdtemp()
+    temp_script_path = os.path.join(temp_dir, os.path.basename(script_path))
+    shutil.copy2(script_path, temp_script_path)
+
+    # Add the temp directory to sys.path
+    sys.path.insert(0, temp_dir)
+
+    # Import the module
+    module_name = os.path.splitext(os.path.basename(script_path))[0]
+    return __import__(module_name)
+
+def main():
+    script_path = r"X:\_PM_APP_DATA\python\project_management_app\src\ui\project_manager_ui.py"
+
+    # Load and execute the script content
+    script_content = load_script_to_ram(script_path)
+
+    # Create a new namespace for execution
+    namespace = {}
+
+    # Include necessary imports in the namespace
+    namespace['QThread'] = QThread
+    namespace['pyqtSignal'] = pyqtSignal
+    namespace['QApplication'] = QApplication
+    namespace['QPixmap'] = QPixmap
+    namespace['QImage'] = QImage
+    namespace['QPainter'] = QPainter
+    namespace['QColor'] = QColor
+    namespace['QFont'] = QFont
+    namespace['QPoint'] = QPoint  # Add QPoint to the namespace
+    # Add any other imports that might be required by the script
+
+    # Execute the script content in the provided namespace
+    exec(script_content, namespace)
+
+    # Retrieve the main class or function from the executed script
+    ProjectManagerUI = namespace.get('ProjectManagerUI')
+
+    if ProjectManagerUI is None:
+        raise ValueError("ProjectManagerUI class was not found in the script.")
+
+    # Initialize and run the application
+    app = QApplication(sys.argv)
+    window = ProjectManagerUI()
+    window.show()
+    sys.exit(app.exec())
+
+if __name__ == "__main__":
+    main()
+
+========================================
+File: /home/hasnocool/Github/active/project-management-app/src/config.ini
+========================================
+[settings]
+project_root = X:/_PM_APP_DATA
+
+
+========================================
+File: /home/hasnocool/Github/active/project-management-app/src/print_files.py
+========================================
+import os
+
+def print_file_contents(directory, script_name):
+    for root, dirs, files in os.walk(directory):
+        # Skip the __pycache__, .git directories, and the script itself
+        dirs[:] = [d for d in dirs if d not in ('__pycache__', '.git')]
+        
+        for filename in files:
+            # Skip binary files like .pyc, .git files, .gitattributes, the script itself, and other .md files except README.md or readme.md
+            if (filename.endswith('.pyc') or
+                filename in ('.git', '.gitattributes', script_name) or
+                (filename.endswith('.md') and filename.lower() not in ('readme.md'))):
+                continue
+
+            # Get the full path of the file
+            filepath = os.path.join(root, filename)
+            
+            # Print the filename
+            print(f"\n{'='*40}\nFile: {filepath}\n{'='*40}")
+            
+            # Print the contents of the file
+            try:
+                with open(filepath, 'r') as file:
+                    print(file.read())
+            except Exception as e:
+                print(f"Could not read {filepath}. Error: {e}")
+
+if __name__ == "__main__":
+    # Define the directory containing your project files
+    project_directory = '.'  # Update this to the correct path if necessary
+    
+    # Define the script's filename (this file)
+    script_name = 'print_files.py'  # Update this if the script has a different name
+    
+    # Print the contents of each file in the directory
+    print_file_contents(project_directory, script_name)
+
+========================================
+File: /home/hasnocool/Github/active/project-management-app/src/file_system/custom_file_system_model.py
+========================================
+from PyQt6.QtGui import QFileSystemModel
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject
+import os
+import csv
+
+class SizeCalculationWorker(QObject):
+    size_calculated = pyqtSignal(str, int)
+
+    def calculate_size(self, file_info):
+        file_path = file_info.absoluteFilePath()
+
+        if file_info.isDir():
+            size = self.calculate_dir_size(file_path)
+        else:
+            size = file_info.size()
+
+        self.size_calculated.emit(file_path, size)
+
+    def calculate_dir_size(self, dir_path):
+        total_size = 0
+        for dirpath, dirnames, filenames in os.walk(dir_path):
+            for f in filenames:
+                fp = os.path.join(dirpath, f)
+                total_size += os.path.getsize(fp)
+        return total_size
+
+
+class CustomFileSystemModel(QFileSystemModel):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.ignored_dirs = ['.venv', '.git']
+        self.size_data = {}
+        self.csv_file_path = "file_sizes.csv"
+        self.load_size_data()
+
+        self.worker_thread = QThread()
+        self.worker = SizeCalculationWorker()
+        self.worker.moveToThread(self.worker_thread)
+        self.worker.size_calculated.connect(self.on_size_calculated)
+        self.worker_thread.start()
+
+    def filterAcceptsRow(self, source_row, source_parent):
+        index = self.index(source_row, 0, source_parent)
+        if index.isValid():
+            file_info = self.fileInfo(index)
+            if self.is_ignored(file_info):
+                return False
+        return super().filterAcceptsRow(source_row, source_parent)
+
+    def is_ignored(self, file_info):
+        if file_info.isDir():
+            if file_info.fileName() in self.ignored_dirs:
+                return True
+            dir_path = file_info.absoluteFilePath()
+            for dir_name in dir_path.split(os.path.sep):
+                if dir_name in self.ignored_dirs:
+                    return True
+        return False
+
+    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
+        if role == Qt.ItemDataRole.DisplayRole:
+            if index.column() == 1:  # Assuming the "Size" column is column 1
+                file_info = self.fileInfo(index)
+                file_path = file_info.absoluteFilePath()
+
+                # Check if the size is already known
+                if file_path in self.size_data:
+                    return self.human_readable_size(self.size_data[file_path])
+
+                # If size is not known, start calculation in a separate thread
+                self.worker.calculate_size(file_info)
+                return "Calculating..."
+
+        return super().data(index, role)
+
+    def on_size_calculated(self, file_path, size):
+        self.size_data[file_path] = size
+        self.save_size_data()
+        self.layoutChanged.emit()  # Notify the view that data has changed
+
+    def human_readable_size(self, size, decimal_places=2):
+        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+            if size < 1024.0:
+                return f"{size:.{decimal_places}f} {unit}"
+            size /= 1024.0
+        return f"{size:.{decimal_places}f} TB"
+
+    def load_size_data(self):
+        if os.path.exists(self.csv_file_path):
+            with open(self.csv_file_path, mode='r', newline='', encoding='utf-8') as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    self.size_data[row['path']] = int(row['size'])
+
+    def save_size_data(self):
+        with open(self.csv_file_path, mode='w', newline='', encoding='utf-8') as file:
+            writer = csv.DictWriter(file, fieldnames=['path', 'size'])
+            writer.writeheader()
+            for path, size in self.size_data.items():
+                writer.writerow({'path': path, 'size': size})
+
+========================================
+File: /home/hasnocool/Github/active/project-management-app/src/ui/project_manager_ui.py
+========================================
+import sys
+import os
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton,
+                             QTreeView, QSplitter, QLabel, QLineEdit, QComboBox, QTextEdit,
+                             QFileDialog, QMenu, QMessageBox, QPlainTextEdit, QDialog,
+                             QDialogButtonBox, QInputDialog, QHeaderView, QMenuBar,
+                             QTreeWidget, QTreeWidgetItem)
+from PyQt6.QtCore import Qt, QDir, QDateTime, QCoreApplication
+from PyQt6.QtGui import QIcon, QAction
+from file_system.custom_file_system_model import CustomFileSystemModel
+from context_menu.context_menu import ContextMenu
+from project_creation.project_creation_thread import ProjectCreationThread
+from file_monitoring.file_monitor_thread import FileMonitorThread
+from config.config_manager import ConfigManager  # Import ConfigManager
+from version_management.version_manager import VersionManager
+from file_monitoring.file_tracker import FileTracker
+
+
+class FileTrackerThread(QThread):
+    tracker_finished = pyqtSignal(str)
+
+    def __init__(self, project_root_dir):
+        super().__init__()
+        self.project_root_dir = project_root_dir
+
+    def run(self):
+        FileTracker.scan_and_track_untracked_files(self.project_root_dir)
+        self.tracker_finished.emit("Scan complete, file_tracker.json updated.")
+
+
+class CompressionThread(QThread):
+    compression_finished = pyqtSignal(str)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, files_to_compress, output_file):
+        super().__init__()
+        self.files_to_compress = files_to_compress
+        self.output_file = output_file
+
+    def run(self):
+        try:
+            result = subprocess.run(["7z", "a", self.output_file] + self.files_to_compress, check=True,
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            if result.returncode == 0:
+                self.compression_finished.emit(f"Successfully compressed to {self.output_file}")
+            else:
+                raise subprocess.CalledProcessError(result.returncode, result.args, output=result.stdout, stderr=result.stderr)
+        except subprocess.CalledProcessError as e:
+            error_message = e.stderr or e.stdout or str(e)
+            self.error_occurred.emit(f"An error occurred while compressing: {error_message}")
+
+
+class FileReadWriteThread(QThread):
+    operation_finished = pyqtSignal(str, str)  # file_path, content or error message
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, file_path, mode, content=None):
+        super().__init__()
+        self.file_path = file_path
+        self.mode = mode
+        self.content = content
+
+    def run(self):
+        try:
+            if self.mode == 'read':
+                with open(self.file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                self.operation_finished.emit(self.file_path, content)
+            elif self.mode == 'write':
+                with open(self.file_path, 'w', encoding='utf-8') as f:
+                    f.write(self.content)
+                self.operation_finished.emit(self.file_path, "Save successful")
+        except Exception as e:
+            self.error_occurred.emit(f"An error occurred: {str(e)}")
+
+class DeleteFileThread(QThread):
+    operation_finished = pyqtSignal(str)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, file_path):
+        super().__init__()
+        self.file_path = file_path
+
+    def run(self):
+        try:
+            if os.path.isdir(self.file_path):
+                os.rmdir(self.file_path)
+            else:
+                os.remove(self.file_path)
+            self.operation_finished.emit(f"Successfully deleted: {self.file_path}")
+        except Exception as e:
+            self.error_occurred.emit(f"An error occurred while deleting: {e}")
+
+class RenameFileThread(QThread):
+    operation_finished = pyqtSignal(str)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, old_path, new_path):
+        super().__init__()
+        self.old_path = old_path
+        self.new_path = new_path
+
+    def run(self):
+        try:
+            os.rename(self.old_path, self.new_path)
+            self.operation_finished.emit(f"Successfully renamed to: {self.new_path}")
+        except Exception as e:
+            self.error_occurred.emit(f"An error occurred while renaming: {e}")
+
+class ImageLoadThread(QThread):
+    image_loaded = pyqtSignal(QPixmap)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, file_path):
+        super().__init__()
+        self.file_path = file_path
+
+    def run(self):
+        try:
+            pixmap = QPixmap(self.file_path)
+            if pixmap.isNull():
+                raise Exception("Failed to load image")
+            self.image_loaded.emit(pixmap)
+        except Exception as e:
+            self.error_occurred.emit(f"An error occurred while loading the image: {e}")
+
+
+
+class TodoApp(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Advanced TODO App")
+        self.setGeometry(200, 200, 800, 600)
+
+        self.tasks = []
+        # Use QCoreApplication.applicationDirPath() to get the current directory
+        self.todo_file = os.path.join(QCoreApplication.applicationDirPath(), "TODO.json")
+
+        layout = QVBoxLayout()
+
+        self.task_input = QLineEdit()
+        layout.addWidget(QLabel("Task:"))
+        layout.addWidget(self.task_input)
+
+        self.priority_input = QComboBox()
+        self.priority_input.addItems(["Low", "Medium", "High"])
+        layout.addWidget(QLabel("Priority:"))
+        layout.addWidget(self.priority_input)
+
+        self.category_input = QLineEdit()
+        layout.addWidget(QLabel("Category:"))
+        layout.addWidget(self.category_input)
+
+        self.start_date_input = QLineEdit()
+        layout.addWidget(QLabel("Start Date (YYYY-MM-DD):"))
+        layout.addWidget(self.start_date_input)
+
+        self.due_date_input = QLineEdit()
+        layout.addWidget(QLabel("Due Date (YYYY-MM-DD):"))
+        layout.addWidget(self.due_date_input)
+
+        self.notes_input = QTextEdit()
+        layout.addWidget(QLabel("Notes:"))
+        layout.addWidget(self.notes_input)
+
+        self.create_task_button = QPushButton("Create Task")
+        self.create_task_button.clicked.connect(self.create_task)
+        layout.addWidget(self.create_task_button)
+
+        self.delete_task_button = QPushButton("Delete Selected Task")
+        self.delete_task_button.clicked.connect(self.delete_task)
+        layout.addWidget(self.delete_task_button)
+
+        self.start_task_button = QPushButton("Start Selected Task")
+        self.start_task_button.clicked.connect(self.start_task_timer)
+        layout.addWidget(self.start_task_button)
+
+        self.stop_task_button = QPushButton("Stop Selected Task")
+        self.stop_task_button.clicked.connect(self.stop_task_timer)
+        layout.addWidget(self.stop_task_button)
+
+        self.task_list = QTreeWidget()
+        self.task_list.setHeaderLabels(["Task", "Priority", "Category", "Start Date", "Due Date", "Time Spent (s)", "Progress"])
+        self.task_list.setSelectionMode(QTreeWidget.SelectionMode.SingleSelection)
+        layout.addWidget(self.task_list)
+
+        self.setLayout(layout)
+
+        self.load_tasks()
+        self.timer = None
+
+    def create_task(self):
+        task_name = self.task_input.text().strip()
+        priority = self.priority_input.currentText()
+        category = self.category_input.text().strip()
+        start_date = self.start_date_input.text().strip()
+        due_date = self.due_date_input.text().strip()
+        notes = self.notes_input.toPlainText().strip()
+
+        if not task_name or not due_date:
+            QMessageBox.warning(self, "Error", "Task name and due date are required.")
+            return
+
+        task = {
+            "name": task_name,
+            "priority": priority,
+            "category": category,
+            "start_date": start_date,
+            "due_date": due_date,
+            "notes": notes,
+            "created_at": datetime.now().strftime("%Y-%m-%d"),
+            "completed": False,
+            "progress": 0,
+            "time_spent": 0,
+            "subtasks": []
+        }
+
+        self.tasks.append(task)
+        self.add_task_to_list(task)
+        self.save_tasks()
+        self.clear_inputs()
+
+    def add_task_to_list(self, task):
+        item = QTreeWidgetItem([
+            task["name"], task["priority"], task["category"], task["start_date"],
+            task["due_date"], str(task["time_spent"]), f'{task["progress"]}%'
+        ])
+        self.task_list.addTopLevelItem(item)
+
+    def clear_inputs(self):
+        self.task_input.clear()
+        self.priority_input.setCurrentIndex(0)
+        self.category_input.clear()
+        self.start_date_input.clear()
+        self.due_date_input.clear()
+        self.notes_input.clear()
+
+    def delete_task(self):
+        selected_items = self.task_list.selectedItems()
+        if not selected_items:
+            QMessageBox.warning(self, "Error", "No task selected.")
+            return
+
+        selected_item = selected_items[0]
+        task_name = selected_item.text(0)
+
+        self.tasks = [task for task in self.tasks if task["name"] != task_name]
+        self.task_list.takeTopLevelItem(self.task_list.indexOfTopLevelItem(selected_item))
+        self.save_tasks()
+
+    def start_task_timer(self):
+        selected_items = self.task_list.selectedItems()
+        if not selected_items:
+            QMessageBox.warning(self, "Error", "No task selected.")
+            return
+
+        selected_item = selected_items[0]
+        task_name = selected_item.text(0)
+
+        if self.timer:
+            QMessageBox.warning(self, "Error", "A task is already being timed.")
+            return
+
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(lambda: self.increment_time_spent(task_name))
+        self.timer.start(1000)
+
+    def stop_task_timer(self):
+        if self.timer:
+            self.timer.stop()
+            self.timer = None
+        else:
+            QMessageBox.warning(self, "Error", "No task is currently being timed.")
+
+    def increment_time_spent(self, task_name):
+        for task in self.tasks:
+            if task["name"] == task_name:
+                task["time_spent"] += 1
+                self.update_task_list_item(task)
+                break
+
+    def update_task_list_item(self, task):
+        for i in range(self.task_list.topLevelItemCount()):
+            item = self.task_list.topLevelItem(i)
+            if item.text(0) == task["name"]:
+                item.setText(5, str(task["time_spent"]))
+                item.setText(6, f'{task["progress"]}%')
+                break
+
+    def load_tasks(self):
+        if os.path.exists(self.todo_file):
+            with open(self.todo_file, 'r') as f:
+                self.tasks = json.load(f)
+
+            for task in self.tasks:
+                self.add_task_to_list(task)
+
+    def save_tasks(self):
+        with open(self.todo_file, 'w') as f:
+            json.dump(self.tasks, f, indent=4)
+
+    def update_task_progress(self, task_name, progress):
+        for task in self.tasks:
+            if task["name"] == task_name:
+                task["progress"] = progress
+                self.save_tasks()
+                self.update_task_list_item(task)
+                break
+
+    def mark_task_complete(self, task_name):
+        self.update_task_progress(task_name, 100)
+
+    def update_due_date(self, task_name, new_due_date):
+        for task in self.tasks:
+            if task["name"] == task_name:
+                task["due_date"] = new_due_date
+                self.save_tasks()
+                self.update_task_list_item(task)
+                break
+
+    def update_start_date(self, task_name, new_start_date):
+        for task in self.tasks:
+            if task["name"] == task_name:
+                task["start_date"] = new_start_date
+                self.save_tasks()
+                self.update_task_list_item(task)
+                break
+
+class LoadTaskFileThread(QThread):
+    tasks_loaded = pyqtSignal(list)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, todo_file):
+        super().__init__()
+        self.todo_file = todo_file
+
+    def run(self):
+        try:
+            if os.path.exists(self.todo_file):
+                with open(self.todo_file, 'r') as f:
+                    tasks = json.load(f)
+                self.tasks_loaded.emit(tasks)
+            else:
+                self.tasks_loaded.emit([])
+        except Exception as e:
+            self.error_occurred.emit(f"Error loading tasks: {str(e)}")
+
+class SaveTaskFileThread(QThread):
+    save_completed = pyqtSignal()
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, todo_file, tasks):
+        super().__init__()
+        self.todo_file = todo_file
+        self.tasks = tasks
+
+    def run(self):
+        try:
+            with open(self.todo_file, 'w') as f:
+                json.dump(self.tasks, f, indent=4)
+            self.save_completed.emit()
+        except Exception as e:
+            self.error_occurred.emit(f"Error saving tasks: {str(e)}")
+
+class ConfigLoadThread(QThread):
+    config_loaded = pyqtSignal(dict)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self):
+        super().__init__()
+
+    def run(self):
+        try:
+            config = ConfigManager.load_config()
+            self.config_loaded.emit(config)
+        except Exception as e:
+            self.error_occurred.emit(f"Error loading config: {str(e)}")
+
+class ConfigSaveThread(QThread):
+    save_completed = pyqtSignal()
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+
+    def run(self):
+        try:
+            ConfigManager.save_config(self.config)
+            self.save_completed.emit()
+        except Exception as e:
+            self.error_occurred.emit(f"Error saving config: {str(e)}")
+
+
+
+class ProjectManagerUI(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Project Manager")
+        self.setGeometry(200, 200, 800, 600)
+        self.setWindowIcon(QIcon("icon.png"))
+
+        self.projects_root_dir = None
+        self.current_tree_index = None
+        self.file_model = CustomFileSystemModel()
+        self.config = ConfigManager.load_config()
+        self.context_menu = ContextMenu(self)
+
+        self.initUI()
+        self.load_project_root()  # Ensure this is defined before calling
+
+    def initUI(self):
+        self.create_menu_bar()
+
+        layout = QVBoxLayout()
+
+        self.set_root_button = QPushButton("Set Projects Root Directory")
+        self.set_root_button.clicked.connect(self.set_root_directory)
+        layout.addWidget(self.set_root_button)
+
+        self.scan_untracked_button = QPushButton("Scan for Untracked Files")
+        self.scan_untracked_button.clicked.connect(self.scan_for_untracked_files)
+        layout.addWidget(self.scan_untracked_button)
+
+        self.start_file_parsing_button = QPushButton("Start File Parsing")
+        self.start_file_parsing_button.clicked.connect(self.start_file_parsing)
+        layout.addWidget(self.start_file_parsing_button)
+
+        self.project_name_label = QLabel("Project Name:")
+        self.project_name_input = QLineEdit()
+        layout.addWidget(self.project_name_label)
+        layout.addWidget(self.project_name_input)
+
+        self.project_type_label = QLabel("Project Type:")
+        self.project_type_input = QComboBox()
+        self.project_type_input.addItems(["python", "rust", "nodejs", "java", "csharp", "cpp", "go"])
+        self.project_type_input.currentTextChanged.connect(self.update_placeholder_text)
+        layout.addWidget(self.project_type_label)
+        layout.addWidget(self.project_type_input)
+
+        self.dependencies_label = QLabel("Dependencies (comma-separated):")
+        self.dependencies_input = QTextEdit()
+        layout.addWidget(self.dependencies_label)
+        layout.addWidget(self.dependencies_input)
+
+        self.create_project_button = QPushButton("Create Project")
+        self.create_project_button.clicked.connect(self.create_project)
+        layout.addWidget(self.create_project_button)
+
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+
+        self.project_tree = QTreeView()
+        self.project_tree.setModel(self.file_model)
+        self.project_tree.setRootIndex(self.file_model.index(QDir.currentPath()))
+        self.project_tree.setAnimated(True)
+        self.project_tree.setIndentation(20)
+        self.project_tree.setSortingEnabled(True)
+        self.project_tree.clicked.connect(self.on_project_tree_clicked)
+        self.project_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.project_tree.customContextMenuRequested.connect(self.open_context_menu)
+
+        self.project_tree.header().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+
+        splitter.addWidget(self.project_tree)
+
+        layout.addWidget(splitter)
+        layout.setStretchFactor(splitter, 1)
+
+        central_widget = QWidget()
+        central_widget.setLayout(layout)
+        self.setCentralWidget(central_widget)
+
+        #self.update_placeholder_text(self.project_type_input.currentText())
+
+    def load_project_root(self):
+        """Load the project root directory from the configuration."""
+        if 'settings' in self.config and 'project_root' in self.config['settings']:
+            self.projects_root_dir = self.config['settings']['project_root']
+            self.file_model.setRootPath(self.projects_root_dir)
+            self.project_tree.setRootIndex(self.file_model.index(self.projects_root_dir))
+        else:
+            QMessageBox.warning(self, "Error", "Project root directory is not set in the configuration.")
+
+    def create_menu_bar(self):
+        menubar = self.menuBar()
+
+        file_menu = menubar.addMenu('File')
+        exit_action = QAction('Exit', self)
+        exit_action.triggered.connect(self.close)
+        file_menu.addAction(exit_action)
+
+        view_menu = menubar.addMenu('View')
+        view_todo_action = QAction('View Todo', self)
+        view_todo_action.triggered.connect(self.open_todo_window)
+        view_menu.addAction(view_todo_action)
+
+    def open_todo_window(self):
+        """Method to open the TODO window."""
+        todo_window = TodoApp(self)
+        todo_window.exec()
+
+    def start_file_parsing(self):
+        if self.projects_root_dir:
+            self.file_parsing_thread = FileTrackerThread(self.projects_root_dir)
+            self.file_parsing_thread.tracker_finished.connect(self.on_tracker_finished)
+            self.file_parsing_thread.start()
+        else:
+            QMessageBox.warning(self, "Error", "Project root directory is not set.")
+
+    def scan_for_untracked_files(self):
+        if self.projects_root_dir:
+            self.file_tracker_thread = FileTrackerThread(self.projects_root_dir)
+            self.file_tracker_thread.tracker_finished.connect(self.on_tracker_finished)
+            self.file_tracker_thread.start()
+        else:
+            QMessageBox.warning(self, "Error", "Project root directory is not set.")
+
+    def on_tracker_finished(self, message):
+        QMessageBox.information(self, "Scan Complete", message)
+
+    def set_root_directory(self):
+        self.projects_root_dir = QFileDialog.getExistingDirectory(self, "Select Projects Root Directory")
+        if self.projects_root_dir:
+            self.file_model.setRootPath(self.projects_root_dir)
+            self.project_tree.setRootIndex(self.file_model.index(self.projects_root_dir))
+
+            if 'settings' not in self.config:
+                self.config['settings'] = {}
+            self.config['settings']['project_root'] = self.projects_root_dir
+            ConfigManager.save_config(self.config)
+
+    def on_project_tree_clicked(self, index):
+        self.current_tree_index = index
+        file_path = self.file_model.filePath(index)
+        if os.path.isdir(file_path):
+            print(f"Folder clicked: {file_path}")
+        else:
+            self.open_file_editor(file_path)
+
+    def open_context_menu(self, position: QPoint):
+        index = self.project_tree.indexAt(position)
+        if not index.isValid():
+            return
+
+        file_path = self.file_model.filePath(index)
+        menu = QMenu(self)
+
+        compress_action = QAction("7-Zip to Backups", self)
+        compress_action.triggered.connect(lambda: self.compress_to_7zip(file_path))
+        menu.addAction(compress_action)
+
+        set_working_action = QAction("Set as Working", self)
+        set_working_action.triggered.connect(lambda: self.set_as_working(file_path))
+        menu.addAction(set_working_action)
+
+        git_add_action = QAction("Git Add", self)
+        git_add_action.triggered.connect(lambda: self.context_menu.git_add(file_path))
+        menu.addAction(git_add_action)
+
+        git_commit_action = QAction("Git Commit", self)
+        git_commit_action.triggered.connect(lambda: self.context_menu.git_commit(file_path))
+        menu.addAction(git_commit_action)
+
+        git_push_action = QAction("Git Push", self)
+        git_push_action.triggered.connect(lambda: self.context_menu.git_push(file_path))
+        menu.addAction(git_push_action)
+
+        delete_action = QAction("Delete", self)
+        delete_action.triggered.connect(lambda: self.delete_file_or_folder(file_path))
+        menu.addAction(delete_action)
+
+        rename_action = QAction("Rename", self)
+        rename_action.triggered.connect(lambda: self.rename_file_or_folder(file_path))
+        menu.addAction(rename_action)
+
+        menu.exec(self.project_tree.viewport().mapToGlobal(position))
+
+    def delete_file_or_folder(self, file_path):
+        try:
+            if os.path.isdir(file_path):
+                os.rmdir(file_path)
+            else:
+                os.remove(file_path)
+            QMessageBox.information(self, "Delete", f"Successfully deleted: {file_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Delete Error", f"An error occurred while deleting: {e}")
+
+    def rename_file_or_folder(self, file_path):
+        new_name, ok = QInputDialog.getText(self, "Rename", "Enter new name:")
+        if ok and new_name:
+            new_path = os.path.join(os.path.dirname(file_path), new_name)
+            try:
+                os.rename(file_path, new_path)
+                QMessageBox.information(self, "Rename", f"Successfully renamed to: {new_path}")
+            except Exception as e:
+                QMessageBox.critical(self, "Rename Error", f"An error occurred while renaming: {e}")
+
+    def compress_to_7zip(self, file_path):
+        project_dir = file_path if os.path.isdir(file_path) else os.path.dirname(file_path)
+        tracker_file = FileTracker.get_tracked_files(project_dir)
+
+        if not tracker_file:
+            QMessageBox.warning(self, "Error", f"Tracker file not found in {project_dir}")
+            return
+
+        backups_dir = os.path.join(project_dir, "backups")
+        os.makedirs(backups_dir, exist_ok=True)
+
+        version = VersionManager.generate_version(project_dir)
+        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_file = os.path.join(backups_dir, f"{os.path.basename(project_dir)}_v{version}_{current_time}.7z")
+
+        files_to_compress = [os.path.join(project_dir, file) for file in tracker_file]
+        self.compression_thread = CompressionThread(files_to_compress, output_file)
+        self.compression_thread.compression_finished.connect(self.show_information_message)
+        self.compression_thread.error_occurred.connect(self.show_error_message)
+        self.compression_thread.start()
+
+    def set_as_working(self, file_path):
+        project_dir = file_path if os.path.isdir(file_path) else os.path.dirname(file_path)
+        tracker_file = FileTracker.get_tracked_files(project_dir)
+
+        if not tracker_file:
+            QMessageBox.warning(self, "Error", f"Tracker file not found in {project_dir}")
+            return
+
+        working_dir = os.path.join(project_dir, "working_versions")
+        os.makedirs(working_dir, exist_ok=True)
+
+        version = VersionManager.generate_version(project_dir, increment=True)
+        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_file = os.path.join(working_dir, f"{os.path.basename(project_dir)}_v{version}_{current_time}.7z")
+
+        files_to_compress = [os.path.join(project_dir, file) for file in tracker_file]
+        self.compression_thread = CompressionThread(files_to_compress, output_file)
+        self.compression_thread.compression_finished.connect(self.show_information_message)
+        self.compression_thread.error_occurred.connect(self.show_error_message)
+        self.compression_thread.start()
+
+    def open_file_editor(self, file_path):
+        # Check if the file is an image
+        if self.is_image(file_path):
+            self.open_image_viewer(file_path)
+            return
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"Editing: {os.path.basename(file_path)}")
+        dialog.setGeometry(300, 300, 800, 600)
+
+        layout = QVBoxLayout(dialog)
+
+        editor = QPlainTextEdit()
+
+        # Load the file in a separate thread
+        self.file_read_thread = FileReadWriteThread(file_path, 'read')
+        self.file_read_thread.operation_finished.connect(lambda file_path, content: editor.setPlainText(content))
+        self.file_read_thread.error_occurred.connect(self.show_error_message)
+        self.file_read_thread.start()
+
+        highlighter = PythonHighlighter(editor.document())
+
+        layout.addWidget(editor)
+
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        button_box.accepted.connect(lambda: self.save_file(file_path, editor.toPlainText(), dialog))
+        button_box.rejected.connect(dialog.reject)
+        layout.addWidget(button_box)
+
+        dialog.exec()
+
+    def is_image(self, file_path):
+        try:
+            with Image.open(file_path) as img:
+                return img.format is not None
+        except IOError:
+            return False
+
+    def open_image_viewer(self, file_path):
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"Viewing: {os.path.basename(file_path)}")
+        dialog.setGeometry(300, 300, 800, 600)
+
+        layout = QVBoxLayout(dialog)
+
+        label = QLabel()
+        pixmap = QPixmap(file_path)
+        label.setPixmap(pixmap)
+        label.setScaledContents(True)
+
+        layout.addWidget(label)
+
+        dialog.exec()
+
+    def save_file(self, file_path, content, dialog):
+        # Save the file in a separate thread
+        self.file_write_thread = FileReadWriteThread(file_path, 'write', content)
+        self.file_write_thread.operation_finished.connect(lambda file_path, message: dialog.accept())
+        self.file_write_thread.error_occurred.connect(self.show_error_message)
+        self.file_write_thread.start()
+
+    def create_project(self):
+        project_name = self.project_name_input.text().strip()
+        project_type = self.project_type_input.currentText().lower()
+        dependencies = self.dependencies_input.toPlainText().split(',')
+        dependencies = [dep.strip() for dep in dependencies if dep.strip()]
+
+        if not project_name:
+            QMessageBox.warning(self, "Error", "Please enter a project name.")
+            return
+
+        if not self.projects_root_dir:
+            QMessageBox.warning(self, "Error", "Please set the projects root directory first!")
+            return
+
+        project_path = os.path.normpath(os.path.join(self.projects_root_dir, project_type, project_name))
+        if os.path.exists(project_path):
+            QMessageBox.warning(self, "Error", "Project already exists!")
+        else:
+            self.start_project_creation(project_path, project_type, dependencies)
+
+    def start_project_creation(self, project_path, project_type, dependencies):
+        self.project_thread = ProjectCreationThread(project_path, project_type, dependencies)
+        self.project_thread.update_ui_signal.connect(self.on_project_created)
+        self.project_thread.start()
+
+    def on_project_created(self, message):
+        QMessageBox.information(self, "Project Creation", message)
+        if "created successfully" in message:
+            self.start_file_monitoring()
+
+    def start_file_monitoring(self):
+        project_name = self.project_name_input.text().strip()
+        project_type = self.project_type_input.currentText().lower()
+        project_path = os.path.normpath(os.path.join(self.projects_root_dir, project_type, project_name))
+        self.monitor_thread = FileMonitorThread(project_path)
+        self.monitor_thread.start()
+
+    def update_placeholder_text(self, project_type):
+        placeholders = {
+            'python': "Example: requests, flask, numpy",
+            'rust': "Example: serde, rand, tokio",
+            'nodejs': "Example: express, lodash, axios",
+            'java': "Example: spring-boot-starter-web, junit, hibernate-core",
+            'csharp': "Example: Newtonsoft.Json, Serilog, Dapper",
+            'cpp': "Example: boost, fmt, spdlog",
+            'go': "Example: gin, go-sql-driver/mysql, logrus"
+        }
+        self.dependencies_input.setPlaceholderText(placeholders.get(project_type, ""))
+
+
+def main():
+    app = QApplication(sys.argv)
+    window = ProjectManagerUI()
+    window.show()
+    sys.exit(app.exec())
+
+if __name__ == "__main__":
+    main()
+
+
+========================================
+File: /home/hasnocool/Github/active/project-management-app/src/version_management/version_manager.py
+========================================
+import os
+
+class VersionManager:
+    @staticmethod
+    def generate_version(project_path, increment=False):
+        version_file = os.path.join(project_path, "version.txt")
+
+        if os.path.exists(version_file):
+            with open(version_file, 'r') as f:
+                version = f.read().strip()
+        else:
+            version = "1.0.0"  # Start with version 1.0.0
+
+        if increment:
+            version_parts = version.split('.')
+            version_parts[2] = str(int(version_parts[2]) + 1)
+            version = '.'.join(version_parts)
+
+            with open(version_file, 'w') as f:
+                f.write(version)
+
+        return version
+
+========================================
+File: /home/hasnocool/Github/active/project-management-app/src/config/config_manager.py
+========================================
+import os
+import configparser
+
+# Constants
+CONFIG_FILE = 'config.ini'
+
+class ConfigManager:
+    @staticmethod
+    def load_config():
+        config = configparser.ConfigParser()
+        if os.path.exists(CONFIG_FILE):
+            config.read(CONFIG_FILE)
+        return config
+
+    @staticmethod
+    def save_config(config):
+        with open(CONFIG_FILE, 'w') as configfile:
+            config.write(configfile)
+
+========================================
+File: /home/hasnocool/Github/active/project-management-app/src/file_monitoring/file_tracker.py
+========================================
+import os
+import json
+import fnmatch
+
+class FileTracker:
+    ignore_next_update = False
+    tracker_file_name = "file_tracker.json"
+
+    # Patterns for files and directories to be ignored
+    ignored_patterns = [
+        '*.pyc', '*.pyo', '*.pyd', '__pycache__', '.git', '.venv', 'node_modules', '.DS_Store',
+        '*.log', '*.tmp', '*.swp', '*.bak', '*.old', '*.pid', '.idea', '*.iml', '.vscode',
+    ]
+
+    @staticmethod
+    def track_file(project_name, file_path):
+        if FileTracker.ignore_next_update:
+            FileTracker.ignore_next_update = False
+            return
+
+        if FileTracker._matches_any_pattern(file_path):
+            # Skip tracking for ignored files or directories
+            return
+
+        tracker_file = os.path.join(project_name, FileTracker.tracker_file_name)
+        tracked_files = []
+
+        if os.path.exists(tracker_file):
+            with open(tracker_file, 'r') as f:
+                try:
+                    tracked_files = json.load(f)
+                except json.JSONDecodeError:
+                    # If JSON is invalid, recreate the file
+                    print(f"Invalid JSON detected in {tracker_file}. Recreating the file.")
+                    tracked_files = []
+
+        relative_path = os.path.relpath(file_path, project_name)
+        if relative_path not in tracked_files:
+            tracked_files.append(relative_path)
+
+        FileTracker.ignore_next_update = True
+        with open(tracker_file, 'w') as f:
+            json.dump(tracked_files, f, indent=4)
+
+    @staticmethod
+    def get_tracked_files(directory):
+        tracker_file = os.path.join(directory, FileTracker.tracker_file_name)
+        if os.path.exists(tracker_file):
+            with open(tracker_file, 'r') as f:
+                try:
+                    return json.load(f)
+                except json.JSONDecodeError:
+                    # If JSON is invalid and not an ignored directory, recreate the file
+                    if not FileTracker._matches_any_pattern(directory):
+                        print(f"Invalid JSON detected in {tracker_file}. Recreating the file.")
+                    return []
+        return None
+
+    @staticmethod
+    def scan_and_track_untracked_files(project_root_dir):
+        for root, dirs, files in os.walk(project_root_dir):
+            # Filter out directories that match ignored patterns
+            dirs[:] = [d for d in dirs if not FileTracker._matches_any_pattern(d)]
+            # Generate or update the file_tracker.json for the current directory
+            if not FileTracker._matches_any_pattern(root):
+                FileTracker._generate_or_update_tracker(root, files)
+
+    @staticmethod
+    def _generate_or_update_tracker(directory, files):
+        tracker_file = os.path.join(directory, FileTracker.tracker_file_name)
+        tracked_files = FileTracker.get_tracked_files(directory) or []
+
+        for filename in files:
+            if not FileTracker._matches_any_pattern(filename):
+                relative_path = os.path.relpath(os.path.join(directory, filename), directory)
+                if relative_path not in tracked_files:
+                    tracked_files.append(relative_path)
+
+        with open(tracker_file, 'w') as f:
+            json.dump(tracked_files, f, indent=4)
+
+    @staticmethod
+    def _matches_any_pattern(path):
+        """Check if a file or directory matches any of the ignored patterns."""
+        for pattern in FileTracker.ignored_patterns:
+            if fnmatch.fnmatch(path, pattern) or any(fnmatch.fnmatch(part, pattern) for part in path.split(os.path.sep)):
+                return True
+        return False
+
+========================================
+File: /home/hasnocool/Github/active/project-management-app/src/file_monitoring/file_monitor_thread.py
+========================================
+import os
+from PyQt6.QtCore import QThread
+from watchdog.observers import Observer
+from file_monitoring.file_change_handler import FileChangeHandler
+
+class FileMonitorThread(QThread):
+    def __init__(self, project_path):
+        super().__init__()
+        self.project_path = project_path
+
+    def run(self):
+        normalized_project_path = os.path.normpath(self.project_path)
+        if not os.path.exists(normalized_project_path):
+            print(f"Cannot start monitoring. The directory {normalized_project_path} does not exist.")
+            return
+
+        event_handler = FileChangeHandler(normalized_project_path)
+        observer = Observer()
+        observer.schedule(event_handler, normalized_project_path, recursive=True)
+        observer.start()
+        print(f"Started monitoring project: {normalized_project_path}")
+
+        try:
+            while observer.is_alive():
+                observer.join(1)
+        except KeyboardInterrupt:
+            observer.stop()
+        observer.join()
+
+========================================
+File: /home/hasnocool/Github/active/project-management-app/src/file_monitoring/file_change_handler.py
+========================================
+from watchdog.events import FileSystemEventHandler
+from file_monitoring.file_tracker import FileTracker
+import os
+
+class FileChangeHandler(FileSystemEventHandler):
+    def __init__(self, project_name):
+        self.project_name = project_name
+        self.tracker_file = os.path.join(project_name, "file_tracker.json")
+
+    def on_modified(self, event):
+        if not event.is_directory:
+            if event.src_path == self.tracker_file:
+                # Ignore modifications to the tracker file itself
+                return
+            print(f"File modified: {event.src_path}")
+            FileTracker.track_file(self.project_name, event.src_path)
+
+    def on_created(self, event):
+        if not event.is_directory:
+            if event.src_path == self.tracker_file:
+                # Ignore creations of the tracker file itself
+                return
+            print(f"File created: {event.src_path}")
+            FileTracker.track_file(self.project_name, event.src_path)
+
+========================================
+File: /home/hasnocool/Github/active/project-management-app/src/context_menu/context_menu.py
+========================================
+import os
+import subprocess
+from PyQt6.QtWidgets import QMenu, QMessageBox, QInputDialog
+from PyQt6.QtGui import QAction
+from PyQt6.QtCore import QPoint
+
+class ContextMenu:
+    def __init__(self, parent):
+        self.parent = parent
+
+
+
+    def git_add(self, file_path):
+        if os.path.isdir(file_path):
+            command = ["git", "add", "."]
+        else:
+            command = ["git", "add", file_path]
+
+        self.run_git_command(command, file_path, "add")
+
+    def git_commit(self, file_path):
+        commit_message, ok = QInputDialog.getText(self.parent, 'Git Commit', 'Enter commit message:')
+        if ok and commit_message:
+            if os.path.isdir(file_path):
+                command = ["git", "commit", "-m", commit_message]
+            else:
+                command = ["git", "commit", file_path, "-m", commit_message]
+
+            self.run_git_command(command, file_path, "commit")
+
+    def git_push(self, file_path):
+        # Use "git push origin" to push the changes to the remote repository
+        command = ["git", "push", "origin"]
+
+        # You may need to specify the branch depending on your setup
+        self.run_git_command(command, file_path, "push")
+
+    def run_git_command(self, command, file_path, action):
+        try:
+            result = subprocess.run(command, cwd=os.path.dirname(file_path), check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            QMessageBox.information(self.parent, f"Git {action.capitalize()}", f"Successfully executed git {action} on {file_path}")
+        except subprocess.CalledProcessError as e:
+            error_message = e.stderr.decode('utf-8') if e.stderr else str(e)
+            if "detected dubious ownership" in error_message:
+                self.handle_dubious_ownership(file_path, error_message)
+            else:
+                self.handle_non_zero_exit_status(error_message, file_path, action)
+
+    def handle_dubious_ownership(self, file_path, error_message):
+        try:
+            safe_directory = self.extract_directory_from_error(error_message)
+            if safe_directory:
+                subprocess.run(["git", "config", "--global", "--add", "safe.directory", safe_directory], check=True)
+                QMessageBox.information(self.parent, "Git Safe Directory", f"Added {safe_directory} to the safe directories list.")
+                # Retry the original git command after adding the safe directory
+                self.run_git_command(["git", "add", "." if os.path.isdir(file_path) else file_path], file_path, "add")
+            else:
+                QMessageBox.critical(self.parent, "Git Safe Directory Error", "Could not extract the safe directory path from the error message.")
+        except subprocess.CalledProcessError as e:
+            QMessageBox.critical(self.parent, "Git Safe Directory Error", f"Failed to add safe directory: {str(e)}")
+
+    def handle_non_zero_exit_status(self, error_message, file_path, action):
+        if "returned a non-zero exit status 128" in error_message:
+            QMessageBox.critical(self.parent, f"Git {action.capitalize()} Error", f"Git returned error 128 for {file_path}. This might be due to an issue with the repository. Error details: {error_message}")
+        else:
+            QMessageBox.critical(self.parent, f"Git {action.capitalize()} Error", f"An error occurred while executing git {action}: {error_message}")
+
+    def extract_directory_from_error(self, error_message):
+        try:
+            start_index = error_message.find("safe.directory '") + len("safe.directory '")
+            end_index = error_message.find("'", start_index)
+            safe_directory = error_message[start_index:end_index]
+            return safe_directory.strip()
+        except:
+            return None
+========================================
+File: /home/hasnocool/Github/active/project-management-app/src/project_creation/project_creator.py
+========================================
+import os
+import sys
+import subprocess
+from file_monitoring.file_tracker import FileTracker
+from datetime import datetime
+
+class ProjectCreator:
+    @staticmethod
+    def create_common_files(project_name, dependencies=None):
+        try:
+            creation_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            version = "1.0.0"
+            dependency_list = ', '.join(dependencies) if dependencies else "None"
+
+            files = {
+                "README.md": f"# {project_name}\n\n**Project Creation Date**: {creation_date}\n\n**Current Version**: {version}\n\n**Dependencies**: {dependency_list}\n\nA new project initialized using the project setup script.\n",
+                "CHANGELOG.md": "# Changelog\n\nAll notable changes to this project will be documented in this file.\n",
+                "LICENSE": "MIT License\n\nYour license text here.\n",
+                ".gitignore": ".venv/\n__pycache__/\nnode_modules/\n*.log\n.env\n"
+            }
+
+            for filename, content in files.items():
+                file_path = os.path.join(project_name, filename)
+                with open(file_path, 'w') as f:
+                    f.write(content)
+                FileTracker.track_file(project_name, file_path)
+
+        except Exception as e:
+            print(f"Error creating common files: {e}")
+
+    @staticmethod
+    def create_python_project(project_name, dependencies):
+        try:
+            print(f"Initializing Python project: {project_name}")
+            os.makedirs(os.path.join(project_name, "src"), exist_ok=True)
+            os.makedirs(os.path.join(project_name, "tests"), exist_ok=True)
+
+            subprocess.run([sys.executable, "-m", "venv", os.path.join(project_name, ".venv")], check=True)
+
+            files = {
+                "src/main.py": '''if __name__ == "__main__":\n    print("Hello, Python World!")\n''',
+                "requirements.txt": '\n'.join(dependencies)
+            }
+
+            for filepath, content in files.items():
+                full_path = os.path.join(project_name, filepath)
+                with open(full_path, 'w') as f:
+                    f.write(content)
+                FileTracker.track_file(project_name, full_path)
+
+            if dependencies:
+                subprocess.run([os.path.join(project_name, ".venv", "Scripts", "pip"), "install"] + dependencies, check=True)
+
+            ProjectCreator.create_common_files(project_name, dependencies)
+            subprocess.run(["git", "init", project_name], check=True)
+            print(f"Python project '{project_name}' created successfully with dependencies: {dependencies}")
+        except subprocess.CalledProcessError as e:
+            print(f"An error occurred during the Python project setup: {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+
+    @staticmethod
+    def create_rust_project(project_name, dependencies):
+        try:
+            print(f"Initializing Rust project: {project_name}")
+            os.makedirs(project_name, exist_ok=True)
+
+            subprocess.run(["cargo", "init", project_name], check=True)
+
+            if dependencies:
+                subprocess.run(["cargo", "add"] + dependencies, check=True)
+
+            ProjectCreator.create_common_files(project_name, dependencies)
+            subprocess.run(["git", "init", project_name], check=True)
+            print(f"Rust project '{project_name}' created successfully with dependencies: {dependencies}")
+        except subprocess.CalledProcessError as e:
+            print(f"An error occurred during the Rust project setup: {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+
+    @staticmethod
+    def create_nodejs_project(project_name, dependencies):
+        try:
+            print(f"Initializing Node.js project: {project_name}")
+            os.makedirs(os.path.join(project_name, "src"), exist_ok=True)
+            os.makedirs(os.path.join(project_name, "tests"), exist_ok=True)
+
+            subprocess.run(["npm", "init", "-y"], cwd=project_name, check=True)
+
+            files = {
+                "src/index.js": '''console.log("Hello, Node.js World!");\n'''
+            }
+
+            for filepath, content in files.items():
+                full_path = os.path.join(project_name, filepath)
+                with open(full_path, 'w') as f:
+                    f.write(content)
+                FileTracker.track_file(project_name, full_path)
+
+            if dependencies:
+                subprocess.run(["npm", "install"] + dependencies, cwd=project_name, check=True)
+
+            ProjectCreator.create_common_files(project_name, dependencies)
+            subprocess.run(["git", "init", project_name], check=True)
+            print(f"Node.js project '{project_name}' created successfully with dependencies: {dependencies}")
+        except subprocess.CalledProcessError as e:
+            print(f"An error occurred during the Node.js project setup: {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+
+    @staticmethod
+    def create_java_project(project_name, dependencies):
+        try:
+            print(f"Initializing Java project: {project_name}")
+            os.makedirs(os.path.join(project_name, "src", "main", "java", project_name), exist_ok=True)
+            os.makedirs(os.path.join(project_name, "src", "test", "java", project_name), exist_ok=True)
+
+            main_java_file = os.path.join(project_name, "src", "main", "java", project_name, f"{project_name}.java")
+            with open(main_java_file, 'w') as f:
+                f.write(f'''public class {project_name} {{\n    public static void main(String[] args) {{\n        System.out.println("Hello, Java World!");\n    }}\n}}\n''')
+            FileTracker.track_file(project_name, main_java_file)
+
+            # Note: Java dependencies are usually managed via Maven or Gradle.
+            if dependencies:
+                print(f"Please add these dependencies to your Maven/Gradle configuration: {dependencies}")
+
+            ProjectCreator.create_common_files(project_name, dependencies)
+            subprocess.run(["git", "init", project_name], check=True)
+            print(f"Java project '{project_name}' created successfully with dependencies: {dependencies}")
+        except subprocess.CalledProcessError as e:
+            print(f"An error occurred during the Java project setup: {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+
+    @staticmethod
+    def create_csharp_project(project_name, dependencies):
+        try:
+            print(f"Initializing C# project: {project_name}")
+            os.makedirs(os.path.join(project_name, "src"), exist_ok=True)
+            os.makedirs(os.path.join(project_name, "tests"), exist_ok=True)
+
+            subprocess.run(["dotnet", "new", "console", "-o", os.path.join(project_name, "src")], check=True)
+
+            if dependencies:
+                subprocess.run(["dotnet", "add", os.path.join(project_name, "src"), "package"] + dependencies, check=True)
+
+            ProjectCreator.create_common_files(project_name, dependencies)
+            subprocess.run(["git", "init", project_name], check=True)
+            print(f"C# project '{project_name}' created successfully with dependencies: {dependencies}")
+        except subprocess.CalledProcessError as e:
+            print(f"An error occurred during the C# project setup: {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+
+    @staticmethod
+    def create_cpp_project(project_name, dependencies):
+        try:
+            print(f"Initializing C++ project: {project_name}")
+            os.makedirs(os.path.join(project_name, "src"), exist_ok=True)
+            os.makedirs(os.path.join(project_name, "include"), exist_ok=True)
+            os.makedirs(os.path.join(project_name, "tests"), exist_ok=True)
+
+            main_cpp_file = os.path.join(project_name, "src", "main.cpp")
+            with open(main_cpp_file, 'w') as f:
+                f.write('''#include <iostream>\n\nint main() {\n    std::cout << "Hello, C++ World!" << std::endl;\n    return 0;\n}\n''')
+            FileTracker.track_file(project_name, main_cpp_file)
+
+            if dependencies:
+                print(f"Please add these dependencies using your package manager: {dependencies}")
+
+            ProjectCreator.create_common_files(project_name, dependencies)
+            subprocess.run(["git", "init", project_name], check=True)
+            print(f"C++ project '{project_name}' created successfully with dependencies: {dependencies}")
+        except subprocess.CalledProcessError as e:
+            print(f"An error occurred during the C++ project setup: {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+
+    @staticmethod
+    def create_go_project(project_name, dependencies):
+        try:
+            print(f"Initializing Go project: {project_name}")
+            os.makedirs(os.path.join(project_name, "cmd"), exist_ok=True)
+            os.makedirs(os.path.join(project_name, "pkg"), exist_ok=True)
+            os.makedirs(os.path.join(project_name, "internal"), exist_ok=True)
+
+            main_go_file = os.path.join(project_name, "cmd", "main.go")
+            with open(main_go_file, 'w') as f:
+                f.write('''package main\n\nimport "fmt"\n\nfunc main() {\n    fmt.Println("Hello, Go World!");\n}\n''')
+            FileTracker.track_file(project_name, main_go_file)
+
+            if dependencies:
+                subprocess.run(["go", "get"] + dependencies, check=True)
+
+            ProjectCreator.create_common_files(project_name, dependencies)
+            subprocess.run(["git", "init", project_name], check=True)
+            print(f"Go project '{project_name}' created successfully with dependencies: {dependencies}")
+        except subprocess.CalledProcessError as e:
+            print(f"An error occurred during the Go project setup: {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+
+    @staticmethod
+    def create_project_structure(project_path, project_type, dependencies):
+        if project_type == 'python':
+            ProjectCreator.create_python_project(project_path, dependencies)
+        elif project_type == 'rust':
+            ProjectCreator.create_rust_project(project_path, dependencies)
+        elif project_type == 'nodejs':
+            ProjectCreator.create_nodejs_project(project_path, dependencies)
+        elif project_type == 'java':
+            ProjectCreator.create_java_project(project_path, dependencies)
+        elif project_type == 'csharp':
+            ProjectCreator.create_csharp_project(project_path, dependencies)
+        elif project_type == 'cpp':
+            ProjectCreator.create_cpp_project(project_path, dependencies)
+        elif project_type == 'go':
+            ProjectCreator.create_go_project(project_path, dependencies)
+        else:
+            raise ValueError(f"Unsupported project type: {project_type}")
+
+========================================
+File: /home/hasnocool/Github/active/project-management-app/src/project_creation/project_creation_thread.py
+========================================
+from PyQt6.QtCore import QThread, pyqtSignal
+from project_creation.project_creator import ProjectCreator
+
+class ProjectCreationThread(QThread):
+    update_ui_signal = pyqtSignal(str)
+
+    def __init__(self, project_path, project_type, dependencies):
+        super().__init__()
+        self.project_path = project_path
+        self.project_type = project_type
+        self.dependencies = dependencies
+
+    def run(self):
+        try:
+            ProjectCreator.create_project_structure(self.project_path, self.project_type, self.dependencies)
+            self.update_ui_signal.emit(f"Project '{self.project_path}' created successfully.")
+        except Exception as e:
+            self.update_ui_signal.emit(f"An error occurred: {e}")
